@@ -1,0 +1,14 @@
+<!DOCTYPE HTML>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+</head>
+<body>
+	{{range $nname, $network := .}}
+	{{range $cname, $channel := $network.Channels}}
+	<a href="{{urlquery $nname}}/{{urlquery $cname}}">{{$nname}}/{{$cname}}</a><br />
+	{{end}}
+	{{end}}
+</body>
+</html>
