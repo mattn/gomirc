@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gobirc</title>
+<title>gomobirc</title>
 <style type="text/css">
 .keyword_recent_notice { background-color: red; }
 .time { color: #004080; }

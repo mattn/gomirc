@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/fluffle/goirc/client"
 	"github.com/mattn/go-session-manager"
@@ -70,8 +71,11 @@ func newCount(t *Channel) int {
 	return n
 }
 
+var configFile = flag.String("c", "config.json", "config file")
+
 func main() {
-	f, err := os.Open("config.json")
+	flag.Parse()
+	f, err := os.Open(*configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -176,7 +180,7 @@ func main() {
 	manager := session.NewSessionManager(logger)
 	manager.SetTimeout(10000)
 
-	tmpl, err := template.New("gobirc").Funcs(template.FuncMap{
+	tmpl, err := template.New("gomobirc").Funcs(template.FuncMap{
 		"time": timeFormat,
 		"nick": nickFormat,
 		"new": newCount,

@@ -1,0 +1,21 @@
+{
+	"irc": [
+		{
+			"name": "freende",
+			"host": "irc.freenode.net:6668",
+			"user": "my-username",
+			"password": "my-password",
+			"channels": ["subtech"]
+		},
+		{
+			"name": "lingr",
+			"host": "irc.perl.org:6668",
+			"user": "my-username",
+			"password": "my-password"
+		}
+	],
+	"web": {
+		"addr": ":5004",
+		"password": "dankogai"
+	}
+}
