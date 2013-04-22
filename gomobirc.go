@@ -5,18 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"github.com/fluffle/goirc/client"
-	"github.com/mattn/go-session-manager"
 	"github.com/hoisie/web"
+	"github.com/mattn/go-session-manager"
+	"html/template"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"html/template"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -183,7 +183,7 @@ func main() {
 	tmpl, err := template.New("gomobirc").Funcs(template.FuncMap{
 		"time": timeFormat,
 		"nick": nickFormat,
-		"new": newCount,
+		"new":  newCount,
 		"reverse": func(a interface{}) []interface{} {
 			var b []interface{}
 			ra := reflect.ValueOf(a)
@@ -219,9 +219,9 @@ func main() {
 			ctx.Redirect(http.StatusFound, "login/")
 			return
 		}
-		tmpl.ExecuteTemplate(ctx, "channels", tmplValue {
+		tmpl.ExecuteTemplate(ctx, "channels", tmplValue{
 			Config: config,
-			Value: networks,
+			Value:  networks,
 		})
 	})
 
@@ -245,9 +245,9 @@ func main() {
 		}
 
 		networks[network].Channels[channel].Seen = time.Now()
-		tmpl.ExecuteTemplate(ctx, "messages", tmplValue {
+		tmpl.ExecuteTemplate(ctx, "messages", tmplValue{
 			Config: config,
-			Value: networks[network].Channels[channel],
+			Value:  networks[network].Channels[channel],
 		})
 	})
 
