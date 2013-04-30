@@ -179,6 +179,9 @@ func main() {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	manager := session.NewSessionManager(logger)
 	manager.SetTimeout(10000)
+	if root, ok := config["web"].(map[string]interface{})["root"].(string); ok {
+		manager.SetPath(root)
+	}
 
 	tmpl, err := template.New("gomobirc").Funcs(template.FuncMap{
 		"time": timeFormat,
