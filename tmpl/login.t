@@ -2,11 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gomobirc</title>
+<title>gomirc</title>
 </head>
 <body>
-<h1>gomobirc</h1>
-<form method="post">
+<h1>gomirc</h1>
+<form method="post" action="{{.Root}}_login/">
 <input type="password" name="password"/>
 <input type="submit" value="login"/>
 </form>

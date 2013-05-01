@@ -1,10 +1,10 @@
-{{define "channels"}}
+{{define "keyword"}}
 <html>
 <head>
 <meta charset="UTF-8">
 <title>gomirc</title>
 <style type="text/css">
-.keyword { background-color: red; }
+.keyword_recent_notice { background-color: red; }
 .time { color: #004080; }
 .channel { color: #004080; }
 .notice { color: #808080; }
@@ -21,11 +21,10 @@
 </head>
 <body>
 {{$root := .Root}}
-{{if .Value.KeywordMatches}}<a href="{{$root}}_keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
-{{range $channel := .Value.Channels}}<a href="{{$root}}{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
-{{end}}
+{{range $match := .Value}}<span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> (<a href="{{$root}}{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel">{{$match.ChannelName}}@{{$match.NetworkName}}</a>)<br />{{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>
+<a accesskey="8" href="{{$root}}">ch list</a>
 </body>
 </html>
 {{end}}

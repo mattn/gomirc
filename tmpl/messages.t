@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gomobirc</title>
+<title>gomirc</title>
 <style type="text/css">
 .keyword_recent_notice { background-color: red; }
 .time { color: #004080; }
@@ -22,13 +22,14 @@
 <body>
 <form method="post">
 <input type="text" name="post"/>
-<input type="submit"/>
+<input type="submit" value="say"/>
 </form>
+{{$root := .Root}}
 {{range reverse .Value.Messages}}{{with $message := .}}<span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable}}</span><br />{{end}}
 {{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>
-<a accesskey="8" href="../..">ch list</a>
+<a accesskey="8" href="{{$root}}">ch list</a>
 </body>
 </html>
 {{end}}

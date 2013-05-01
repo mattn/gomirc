@@ -12,45 +12,66 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
-var reLink = regexp.MustCompile(`(\b(https?|ftp)\://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,3}(:[a-zA-Z0-9]*)?/?([a-zA-Z0-9\-\._\?\,\'/\+&%$#\=~])*)`)
+var reLink = regexp.MustCompile(`(\b(https?|ftp)\://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,3}(:[a-zA-Z0-9]*)?/?([a-zA-Z0-9\-\._\?\,\'/\+&%$#\=~:])*)`)
 
 var mutex sync.Mutex
 
 type Message struct {
-	Nickname string
-	Text     string
-	Time     time.Time
-	IsSelf   bool
-	IsNotice bool
+	Nickname string    `json:"nickname"`
+	Text     string    `json:"text"`
+	Time     time.Time `json:"time"`
+	IsSelf   bool      `json:"is_self"`
+	IsNotice bool      `json:"is_notice"`
 }
 
 type Member struct {
 }
 
 type Channel struct {
-	Members  map[string]*Member
-	Messages []*Message
-	Seen     time.Time
+	Members  map[string]*Member `json:"members"`
+	Messages []*Message         `json:"messages"`
+	Seen     time.Time          `json:"seen"`
+}
+
+type ChannelMap struct {
+	NetworkName string
+	ChannelName string
+	Channel     *Channel
+}
+
+type Channels []*ChannelMap
+
+func (p Channels) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p Channels) Len() int           { return len(p) }
+func (p Channels) Less(i, j int) bool { return newCount(p[i].Channel) >= newCount(p[j].Channel) }
+
+type KeywordMatch struct {
+	NetworkName string
+	ChannelName string
+	Message     *Message
 }
 
 type Network struct {
-	Channels map[string]*Channel
+	Channels map[string]*Channel `json:"channels"`
 	conn     *client.Conn
 	config   map[string]interface{}
 }
 
 type tmplValue struct {
-	Config map[string]interface{}
-	Value  interface{}
+	Root  interface{}
+	Value interface{}
 }
 
 func timeFormat(t interface{}) string {
@@ -76,6 +97,13 @@ func newCount(t *Channel) int {
 
 var configFile = flag.String("c", "config.json", "config file")
 
+func getChannel(network *Network, channel string) *Channel {
+	if _, ok := network.Channels[channel]; !ok {
+		network.Channels[channel] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
+	}
+	return network.Channels[channel]
+}
+
 func main() {
 	flag.Parse()
 	f, err := os.Open(*configFile)
@@ -87,15 +115,47 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	f.Close()
 
 	networks := make(map[string]*Network)
+	if backlog, ok := config["web"].(map[string]interface{})["backlog"].(string); ok {
+		if f, err = os.Open(backlog); err == nil {
+			json.NewDecoder(f).Decode(&networks)
+			f.Close()
+		}
+		sc := make(chan os.Signal)
+		go func() {
+			<-sc
+			if f, err = os.Create(backlog); err == nil {
+				json.NewEncoder(f).Encode(&networks)
+				f.Close()
+			}
+			os.Exit(0)
+		}()
+		signal.Notify(sc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	}
+
+	keywords := []string{}
+	if kwi, ok := config["web"].(map[string]interface{})["keywords"].([]interface{}); ok {
+		for _, kw := range kwi {
+			keywords = append(keywords, kw.(string))
+		}
+	}
+
+	keywordMatches := []*KeywordMatch{}
 
 	for _, elem := range config["irc"].([]interface{}) {
 		irc := elem.(map[string]interface{})
 		c := client.SimpleClient(irc["user"].(string), irc["user"].(string))
 		c.Network = irc["name"].(string)
 		c.EnableStateTracking()
-		networks[c.Network] = &Network{make(map[string]*Channel), c, irc}
+
+		if network, ok := networks[c.Network]; ok {
+			network.conn = c
+			network.config = irc
+		} else {
+			networks[c.Network] = &Network{make(map[string]*Channel), c, irc}
+		}
 
 		c.AddHandler("connected", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
@@ -120,20 +180,23 @@ func main() {
 			if _, ok := networks[conn.Network]; !ok {
 				return
 			}
-			if _, ok := networks[conn.Network].Channels[line.Args[0][1:]]; !ok {
-				return
+			message := &Message{
+				line.Src,
+				line.Args[1],
+				time.Now(),
+				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				false,
 			}
-			networks[conn.Network].Channels[line.Args[0][1:]].Messages = append(
-				networks[conn.Network].Channels[line.Args[0][1:]].Messages,
-				&Message{
-					line.Src,
-					line.Args[1],
-					time.Now(),
-					nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
-					false,
-				})
-			if len(networks[conn.Network].Channels[line.Args[0][1:]].Messages) > 100 {
-				networks[conn.Network].Channels[line.Args[0][1:]].Messages = networks[conn.Network].Channels[line.Args[0][1:]].Messages[1:]
+			ch := getChannel(networks[conn.Network], line.Args[0][1:])
+			ch.Messages = append(ch.Messages, message)
+			if len(ch.Messages) > 100 {
+				ch.Messages = ch.Messages[1:]
+			}
+			for _, keyword := range keywords {
+				if strings.Contains(line.Args[1], keyword) {
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, line.Args[0][1:], message})
+					println(keyword)
+				}
 			}
 		})
 
@@ -144,11 +207,9 @@ func main() {
 			if _, ok := networks[conn.Network]; !ok {
 				return
 			}
-			if _, ok := networks[conn.Network].Channels[line.Args[0][1:]]; !ok {
-				return
-			}
-			networks[conn.Network].Channels[line.Args[0][1:]].Messages = append(
-				networks[conn.Network].Channels[line.Args[0][1:]].Messages,
+			ch := getChannel(networks[conn.Network], line.Args[0][1:])
+			ch.Messages = append(
+				ch.Messages,
 				&Message{
 					line.Src,
 					line.Args[1],
@@ -156,8 +217,8 @@ func main() {
 					nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
 					true,
 				})
-			if len(networks[conn.Network].Channels[line.Args[0][1:]].Messages) > 100 {
-				networks[conn.Network].Channels[line.Args[0][1:]].Messages = networks[conn.Network].Channels[line.Args[0][1:]].Messages[1:]
+			if len(ch.Messages) > 100 {
+				ch.Messages = ch.Messages[1:]
 			}
 		})
 
@@ -165,10 +226,10 @@ func main() {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("join", line.Src, line.Args[0])
-			if _, ok := networks[conn.Network].Channels[line.Args[0][1:]]; !ok {
-				networks[conn.Network].Channels[line.Args[0][1:]] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
+			if _, ok := networks[conn.Network]; !ok {
+				return
 			}
-			networks[conn.Network].Channels[line.Args[0][1:]].Members[line.Src] = &Member{}
+			getChannel(networks[conn.Network], line.Args[0][1:])
 		})
 
 		c.AddHandler("part", func(conn *client.Conn, line *client.Line) {
@@ -190,11 +251,16 @@ func main() {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	manager := session.NewSessionManager(logger)
 	manager.SetTimeout(10000)
-	if root, ok := config["web"].(map[string]interface{})["root"].(string); ok {
+	root := "/"
+	if root, _ = config["web"].(map[string]interface{})["root"].(string); root != "/" {
 		manager.SetPath(root)
 	}
+	if !strings.HasSuffix(root, "/") {
+		root += "/"
+		config["web"].(map[string]interface{})["root"] = root
+	}
 
-	tmpl, err := template.New("gomobirc").Funcs(template.FuncMap{
+	tmpl, err := template.New("gomirc").Funcs(template.FuncMap{
 		"time": timeFormat,
 		"nick": nickFormat,
 		"new":  newCount,
@@ -228,57 +294,97 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	web.Get("/", func(ctx *web.Context) {
+	web.Get(root, func(ctx *web.Context) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, "login/")
+			ctx.Redirect(http.StatusFound, root+"_login/")
 			return
 		}
+		chs := make(Channels, 0)
+		for nn, nw := range networks {
+			for cn, cc := range nw.Channels {
+				chs = append(chs, &ChannelMap{
+					NetworkName: nn,
+					ChannelName: cn,
+					Channel:     cc,
+				})
+			}
+		}
+		sort.Sort(chs)
 		tmpl.ExecuteTemplate(ctx, "channels", tmplValue{
-			Config: config,
-			Value:  networks,
+			Root: root,
+			Value: &struct {
+				Channels       Channels
+				KeywordMatches []*KeywordMatch
+			}{
+				Channels:       chs,
+				KeywordMatches: keywordMatches,
+			},
 		})
 	})
 
-	web.Get("/login/", func(ctx *web.Context) {
-		tmpl.ExecuteTemplate(ctx, "login", nil)
+	web.Get(root+"_login/", func(ctx *web.Context) {
+		tmpl.ExecuteTemplate(ctx, "login", tmplValue{
+			Root:  root,
+			Value: nil,
+		})
 	})
 
-	web.Post("/login/", func(ctx *web.Context) {
+	web.Post(root+"_login/", func(ctx *web.Context) {
 		if p, ok := ctx.Params["password"]; ok && p == config["web"].(map[string]interface{})["password"].(string) {
 			manager.GetSession(ctx, ctx.Request).Value = time.Now()
-			ctx.Redirect(http.StatusFound, "..")
+			ctx.Redirect(http.StatusFound, root)
 			return
 		}
 		ctx.Redirect(http.StatusFound, ".")
 	})
 
-	web.Get("/(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+	web.Get(root+"_keyword/", func(ctx *web.Context) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, "../../login/")
+			println(root)
+			ctx.Redirect(http.StatusFound, root+"_login/")
 			return
 		}
 
-		networks[network].Channels[channel].Seen = time.Now()
+		tmpl.ExecuteTemplate(ctx, "keyword", tmplValue{
+			Root:  root,
+			Value: keywordMatches,
+		})
+		keywordMatches = []*KeywordMatch{}
+	})
+
+	web.Get(root+"(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if manager.GetSession(ctx, ctx.Request).Value == nil {
+			ctx.Redirect(http.StatusFound, root+"_login/")
+			return
+		}
+
+		ch := getChannel(networks[network], channel)
+		ch.Seen = time.Now()
 		tmpl.ExecuteTemplate(ctx, "messages", tmplValue{
-			Config: config,
-			Value:  networks[network].Channels[channel],
+			Root:  root,
+			Value: ch,
 		})
 	})
 
-	web.Post("/(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+	web.Post(root+"(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, "../../login/")
+			ctx.Redirect(http.StatusFound, root+"_login/")
 			return
 		}
 		networks[network].conn.Privmsg("#"+channel, ctx.Params["post"])
-		networks[network].Channels[channel].Messages = append(
-			networks[network].Channels[channel].Messages,
+
+		ch := getChannel(networks[network], channel)
+		ch.Seen = time.Now()
+		ch.Messages = append(
+			ch.Messages,
 			&Message{
 				networks[network].conn.Me.Nick,
 				ctx.Params["post"],
@@ -286,8 +392,8 @@ func main() {
 				true,
 				false,
 			})
-		if len(networks[network].Channels[channel].Messages) > 100 {
-			networks[network].Channels[channel].Messages = networks[network].Channels[channel].Messages[1:]
+		if len(ch.Messages) > 100 {
+			ch.Messages = ch.Messages[1:]
 		}
 		ctx.Redirect(http.StatusFound, ".")
 	})
