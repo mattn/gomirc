@@ -17,10 +17,13 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 var reLink = regexp.MustCompile(`(\b(https?|ftp)\://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,3}(:[a-zA-Z0-9]*)?/?([a-zA-Z0-9\-\._\?\,\'/\+&%$#\=~])*)`)
+
+var mutex sync.Mutex
 
 type Message struct {
 	Nickname string
@@ -95,6 +98,8 @@ func main() {
 		networks[c.Network] = &Network{make(map[string]*Channel), c, irc}
 
 		c.AddHandler("connected", func(conn *client.Conn, line *client.Line) {
+			mutex.Lock()
+			defer mutex.Unlock()
 			joinlist := networks[conn.Network].config["channels"]
 			if joinlist != nil {
 				for _, ch := range joinlist.([]interface{}) {
@@ -109,6 +114,8 @@ func main() {
 		})
 
 		c.AddHandler("privmsg", func(conn *client.Conn, line *client.Line) {
+			mutex.Lock()
+			defer mutex.Unlock()
 			println("privmsg", line.Src, line.Args[0], line.Args[1])
 			if _, ok := networks[conn.Network]; !ok {
 				return
@@ -131,6 +138,8 @@ func main() {
 		})
 
 		c.AddHandler("notice", func(conn *client.Conn, line *client.Line) {
+			mutex.Lock()
+			defer mutex.Unlock()
 			println("notice", line.Src, line.Args[0], line.Args[1])
 			if _, ok := networks[conn.Network]; !ok {
 				return
@@ -153,6 +162,8 @@ func main() {
 		})
 
 		c.AddHandler("join", func(conn *client.Conn, line *client.Line) {
+			mutex.Lock()
+			defer mutex.Unlock()
 			println("join", line.Src, line.Args[0])
 			if _, ok := networks[conn.Network].Channels[line.Args[0][1:]]; !ok {
 				networks[conn.Network].Channels[line.Args[0][1:]] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
@@ -218,6 +229,8 @@ func main() {
 	}
 
 	web.Get("/", func(ctx *web.Context) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
 			ctx.Redirect(http.StatusFound, "login/")
 			return
@@ -242,6 +255,8 @@ func main() {
 	})
 
 	web.Get("/(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
 			ctx.Redirect(http.StatusFound, "../../login/")
 			return
@@ -255,6 +270,8 @@ func main() {
 	})
 
 	web.Post("/(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		if manager.GetSession(ctx, ctx.Request).Value == nil {
 			ctx.Redirect(http.StatusFound, "../../login/")
 			return
