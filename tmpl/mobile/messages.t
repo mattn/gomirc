@@ -1,8 +1,9 @@
 {{define "messages"}}
+{{$root := .Root}}{{$value := .Value}}
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gomirc</title>
+<title>GoMIRC</title>
 <style type="text/css">
 .keyword_recent_notice { background-color: red; }
 .time { color: #004080; }
@@ -20,12 +21,12 @@
 </style>
 </head>
 <body>
+<h2>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h2>
 <form method="post">
 <input type="text" name="post"/>
 <input type="submit" value="say"/>
 </form>
-{{$root := .Root}}
-{{range reverse .Value.Messages}}{{with $message := .}}<span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable}}</span><br />{{end}}
+{{range reverse $value.Channel.Messages}}{{with $message := .}}<span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable}}</span><br />{{end}}
 {{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>

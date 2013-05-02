@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/fluffle/goirc/client"
-	"github.com/hoisie/web"
+	"github.com/mattn/go-mobileagent"
 	"github.com/mattn/go-session-manager"
 	"html/template"
 	"log"
@@ -37,6 +37,7 @@ type Message struct {
 }
 
 type Member struct {
+	IsOwner bool `json:"is_owner"`
 }
 
 type Channel struct {
@@ -102,6 +103,14 @@ func getChannel(network *Network, channel string) *Channel {
 		network.Channels[channel] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
 	}
 	return network.Channels[channel]
+}
+
+func getTmplName(req *http.Request) string {
+	userAgent := req.Header.Get("User-Agent")
+	if mobileagent.IsMobile(userAgent) {
+		return "mobile"
+	}
+	return "iphone"
 }
 
 func main() {
@@ -195,7 +204,6 @@ func main() {
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
 					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, line.Args[0][1:], message})
-					println(keyword)
 				}
 			}
 		})
@@ -207,18 +215,22 @@ func main() {
 			if _, ok := networks[conn.Network]; !ok {
 				return
 			}
+			message := &Message{
+				line.Src,
+				line.Args[1],
+				time.Now(),
+				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				true,
+			}
 			ch := getChannel(networks[conn.Network], line.Args[0][1:])
-			ch.Messages = append(
-				ch.Messages,
-				&Message{
-					line.Src,
-					line.Args[1],
-					time.Now(),
-					nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
-					true,
-				})
+			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
+			}
+			for _, keyword := range keywords {
+				if strings.Contains(line.Args[1], keyword) {
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, line.Args[0][1:], message})
+				}
 			}
 		})
 
@@ -229,12 +241,14 @@ func main() {
 			if _, ok := networks[conn.Network]; !ok {
 				return
 			}
-			getChannel(networks[conn.Network], line.Args[0][1:])
+			members := getChannel(networks[conn.Network], line.Args[0][1:]).Members
+			members[line.Src] = &Member{}
 		})
 
 		c.AddHandler("part", func(conn *client.Conn, line *client.Line) {
 			println("part", line.Src, line.Args[0])
-			delete(networks[conn.Network].Channels[line.Args[0][1:]].Members, line.Src)
+			members := getChannel(networks[conn.Network], line.Args[0][1:]).Members
+			delete(members, line.Src)
 		})
 
 		go func(irc map[string]interface{}, c *client.Conn) {
@@ -260,7 +274,7 @@ func main() {
 		config["web"].(map[string]interface{})["root"] = root
 	}
 
-	tmpl, err := template.New("gomirc").Funcs(template.FuncMap{
+	fmap := template.FuncMap{
 		"time": timeFormat,
 		"nick": nickFormat,
 		"new":  newCount,
@@ -289,16 +303,27 @@ func main() {
 		"eq": func(a, b string) bool {
 			return a == b
 		},
-	}).ParseGlob(filepath.Join(filepath.Dir(os.Args[0]), "tmpl", "*.t"))
-	if err != nil {
-		log.Fatal(err.Error())
 	}
 
-	web.Get(root, func(ctx *web.Context) {
+	tmpls := map[string]*template.Template{}
+	tmpls["mobile"], err = template.New("mobile").Funcs(fmap).ParseGlob(filepath.Join(filepath.Dir(os.Args[0]), "tmpl/mobile", "*.t"))
+	if err != nil {
+		log.Fatal("mobile ", err.Error())
+	}
+	tmpls["iphone"], err = template.New("iphone").Funcs(fmap).ParseGlob(filepath.Join(filepath.Dir(os.Args[0]), "tmpl/iphone", "*.t"))
+	if err != nil {
+		log.Fatal("iphone ", err.Error())
+	}
+
+	http.HandleFunc(root+"assets/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/"+r.URL.Path[len(root+"asserts"):])
+	})
+
+	http.HandleFunc(root, func(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, root+"_login/")
+		if manager.GetSession(w, r).Value == nil {
+			http.Redirect(w, r, root+"login/", http.StatusFound)
 			return
 		}
 		chs := make(Channels, 0)
@@ -312,7 +337,7 @@ func main() {
 			}
 		}
 		sort.Sort(chs)
-		tmpl.ExecuteTemplate(ctx, "channels", tmplValue{
+		tmpls[getTmplName(r)].ExecuteTemplate(w, "channels", tmplValue{
 			Root: root,
 			Value: &struct {
 				Channels       Channels
@@ -324,79 +349,83 @@ func main() {
 		})
 	})
 
-	web.Get(root+"_login/", func(ctx *web.Context) {
-		tmpl.ExecuteTemplate(ctx, "login", tmplValue{
-			Root:  root,
-			Value: nil,
-		})
-	})
-
-	web.Post(root+"_login/", func(ctx *web.Context) {
-		if p, ok := ctx.Params["password"]; ok && p == config["web"].(map[string]interface{})["password"].(string) {
-			manager.GetSession(ctx, ctx.Request).Value = time.Now()
-			ctx.Redirect(http.StatusFound, root)
-			return
+	http.HandleFunc(root+"login/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			tmpls[getTmplName(r)].ExecuteTemplate(w, "login", tmplValue{
+				Root:  root,
+				Value: nil,
+			})
+		case "POST":
+			if p := r.FormValue("password"); p == config["web"].(map[string]interface{})["password"].(string) {
+				manager.GetSession(w, r).Value = time.Now()
+				http.Redirect(w, r, root, http.StatusFound)
+				return
+			}
+			http.Redirect(w, r, ".", http.StatusFound)
 		}
-		ctx.Redirect(http.StatusFound, ".")
 	})
 
-	web.Get(root+"_keyword/", func(ctx *web.Context) {
+	http.HandleFunc(root+"keyword/", func(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			println(root)
-			ctx.Redirect(http.StatusFound, root+"_login/")
+		if manager.GetSession(w, r).Value == nil {
+			http.Redirect(w, r, root+"login/", http.StatusFound)
 			return
 		}
 
-		tmpl.ExecuteTemplate(ctx, "keyword", tmplValue{
+		tmpls[getTmplName(r)].ExecuteTemplate(w, "keyword", tmplValue{
 			Root:  root,
 			Value: keywordMatches,
 		})
 		keywordMatches = []*KeywordMatch{}
 	})
 
-	web.Get(root+"(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
+	http.HandleFunc(root+"irc/", func(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, root+"_login/")
+		if manager.GetSession(w, r).Value == nil {
+			http.Redirect(w, r, root+"login/", http.StatusFound)
 			return
 		}
 
-		ch := getChannel(networks[network], channel)
-		ch.Seen = time.Now()
-		tmpl.ExecuteTemplate(ctx, "messages", tmplValue{
-			Root:  root,
-			Value: ch,
-		})
-	})
+		paths := strings.Split(r.URL.Path[len(root+"irc/"):], "/")
+		network, channel := paths[0], paths[1]
 
-	web.Post(root+"(.*)/(.*)/", func(ctx *web.Context, network string, channel string) {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if manager.GetSession(ctx, ctx.Request).Value == nil {
-			ctx.Redirect(http.StatusFound, root+"_login/")
-			return
-		}
-		networks[network].conn.Privmsg("#"+channel, ctx.Params["post"])
-
-		ch := getChannel(networks[network], channel)
-		ch.Seen = time.Now()
-		ch.Messages = append(
-			ch.Messages,
-			&Message{
-				networks[network].conn.Me.Nick,
-				ctx.Params["post"],
-				time.Now(),
-				true,
-				false,
+		switch r.Method {
+		case "GET":
+			ch := getChannel(networks[network], channel)
+			ch.Seen = time.Now()
+			tmpls[getTmplName(r)].ExecuteTemplate(w, "messages", tmplValue{
+				Root:  root,
+				Value: &ChannelMap{
+					NetworkName: network,
+					ChannelName: channel,
+					Channel:     ch,
+				},
 			})
-		if len(ch.Messages) > 100 {
-			ch.Messages = ch.Messages[1:]
+		case "POST":
+			p := r.FormValue("post")
+			if p != "" {
+				networks[network].conn.Privmsg("#"+channel, p)
+				ch := getChannel(networks[network], channel)
+				ch.Seen = time.Now()
+				ch.Messages = append(
+					ch.Messages,
+					&Message{
+						networks[network].conn.Me.Nick,
+						r.FormValue("post"),
+						time.Now(),
+						true,
+						false,
+					})
+				if len(ch.Messages) > 100 {
+					ch.Messages = ch.Messages[1:]
+				}
+			}
+			http.Redirect(w, r, ".", http.StatusFound)
 		}
-		ctx.Redirect(http.StatusFound, ".")
 	})
 
-	web.Run(config["web"].(map[string]interface{})["addr"].(string))
+	http.ListenAndServe(config["web"].(map[string]interface{})["addr"].(string), nil)
 }

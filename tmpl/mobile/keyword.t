@@ -1,8 +1,9 @@
 {{define "keyword"}}
+{{$root := .Root}}{{$value := .Value}}
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gomirc</title>
+<title>GoMIRC</title>
 <style type="text/css">
 .keyword_recent_notice { background-color: red; }
 .time { color: #004080; }
@@ -20,8 +21,8 @@
 </style>
 </head>
 <body>
-{{$root := .Root}}
-{{range $match := .Value}}<span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> (<a href="{{$root}}{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel">{{$match.ChannelName}}@{{$match.NetworkName}}</a>)<br />{{end}}
+<h2>GoMIRC</h2>
+{{range $match := $value}}<span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> (<a href="{{$root}}irc/{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel">{{$match.ChannelName}}@{{$match.NetworkName}}</a>)<br />{{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>

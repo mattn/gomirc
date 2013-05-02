@@ -1,8 +1,9 @@
 {{define "channels"}}
+{{$root := .Root}}{{$value := .Value}}
 <html>
 <head>
 <meta charset="UTF-8">
-<title>gomirc</title>
+<title>GoMIRC</title>
 <style type="text/css">
 .keyword { background-color: red; }
 .time { color: #004080; }
@@ -20,9 +21,9 @@
 </style>
 </head>
 <body>
-{{$root := .Root}}
-{{if .Value.KeywordMatches}}<a href="{{$root}}_keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
-{{range $channel := .Value.Channels}}<a href="{{$root}}{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
+<h2>GoMIRC</h2>
+{{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
+{{range $channel := $value.Channels}}<a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
 {{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>
