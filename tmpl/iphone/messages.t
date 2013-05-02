@@ -32,12 +32,6 @@
 <div data-role="header" data-theme="b">
 <h2>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h2>
 </div>
-<div data-role="header" data-theme="b" data-position="fixed">
-<form method="post">
-<input type="text" name="post"/>
-<input type="submit" value="say"/>
-</form>
-</div>
 <div data-role="content">
 <ul data-role="listview" data-ajax="false" data-inset="true" data-theme="d">
 {{range reverse $value.Channel.Messages}}{{with $message := .}}<li><span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable}}</span></li>{{end}}
@@ -45,6 +39,11 @@
 </ul>
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
+<form method="post">
+<input type="text" name="post"/>
+<input type="submit" value="say"/>
+</form>
+<br />
 <a accesskey="0" href=".">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>
 </div>
