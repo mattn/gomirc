@@ -27,7 +27,7 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b">
+<div data-role="page" data-theme="b" data-fullscreen="true">
 <div data-role="header" data-theme="b">
 <h2>GoMIRC</h2>
 </div>
@@ -36,7 +36,7 @@
 {{range $match := $value}}<li><a href="{{$root}}irc/{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel"><span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> ({{$match.ChannelName}}@{{$match.NetworkName}})</a></li>{{end}}
 </ul>
 </div>
-<div data-role="footer" data-theme="b">
+<div data-role="footer" data-theme="b" data-position="fixed">
 <a accesskey="0" href=".">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>
 </div>

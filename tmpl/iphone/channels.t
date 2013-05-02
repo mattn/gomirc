@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b">
+<div data-role="page" data-theme="b" data-fullscreen="true">
 <div data-role="header" data-theme="b">
 <h2>GoMIRC</h2>
 {{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
@@ -39,7 +39,7 @@
 {{end}}
 </ul>
 </div>
-<div data-role="footer" data-theme="b">
+<div data-role="footer" data-theme="b" data-position="fixed">
 <a accesskey="0" href=".">refresh</a>
 </div>
 </div>

@@ -12,7 +12,7 @@
 <script src="{{$root}}assets/javascript/jquery.mobile-1.3.1.min.js"></script>
 </head>
 <body>
-<div data-role="page" data-theme="b">
+<div data-role="page" data-theme="b" data-fullscreen="true">
 <div data-role="header" data-theme="b">
 <h2>GoMIRC</h2>
 </div>

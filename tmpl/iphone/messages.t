@@ -28,9 +28,11 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b">
+<div data-role="page" data-theme="b" data-fullscreen="true">
 <div data-role="header" data-theme="b">
 <h2>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h2>
+</div>
+<div data-role="header" data-theme="b" data-position="fixed">
 <form method="post">
 <input type="text" name="post"/>
 <input type="submit" value="say"/>
@@ -42,7 +44,7 @@
 {{end}}
 </ul>
 </div>
-<div data-role="footer" data-theme="b">
+<div data-role="footer" data-theme="b" data-position="fixed">
 <a accesskey="0" href=".">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>
 </div>
