@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<h2>GoMIRC</h2>
+<h4>GoMIRC</h4>
 {{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
 {{range $channel := $value.Channels}}<a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
 {{end}}

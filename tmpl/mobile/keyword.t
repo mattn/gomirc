@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<h2>GoMIRC</h2>
+<h4>GoMIRC</h4>
 {{range $match := $value}}<span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> (<a href="{{$root}}irc/{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel">{{$match.ChannelName}}@{{$match.NetworkName}}</a>)<br />{{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>

@@ -113,6 +113,12 @@ func getTmplName(req *http.Request) string {
 	return "iphone"
 }
 
+func weblog(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
+}
 func main() {
 	flag.Parse()
 	f, err := os.Open(*configFile)
@@ -262,8 +268,7 @@ func main() {
 		}(irc, c)
 	}
 
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	manager := session.NewSessionManager(logger)
+	manager := session.NewSessionManager(nil)
 	manager.SetTimeout(10000)
 	root := "/"
 	if root, _ = config["web"].(map[string]interface{})["root"].(string); root != "/" {
@@ -423,9 +428,9 @@ func main() {
 					ch.Messages = ch.Messages[1:]
 				}
 			}
-			http.Redirect(w, r, ".", http.StatusFound)
+			http.Redirect(w, r, r.URL.Path, http.StatusFound)
 		}
 	})
 
-	http.ListenAndServe(config["web"].(map[string]interface{})["addr"].(string), nil)
+	http.ListenAndServe(config["web"].(map[string]interface{})["addr"].(string), weblog(http.DefaultServeMux))
 }

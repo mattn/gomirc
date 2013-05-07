@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b" data-fullscreen="true">
+<div data-role="page" data-theme="b" data-fullscreen="true" data-url="{{$root}}">
 <div data-role="header" data-theme="b">
 <h2>GoMIRC</h2>
 {{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
