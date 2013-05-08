@@ -5,10 +5,10 @@
 			"host": "irc.freenode.net:6668",
 			"user": "my-username",
 			"password": "my-password",
-			"channels": ["subtech"]
+			"channels": ["golang-nuts"]
 		},
 		{
-			"name": "lingr",
+			"name": "perl",
 			"host": "irc.perl.org:6668",
 			"user": "my-username",
 			"password": "my-password"
@@ -17,5 +17,8 @@
 	"web": {
 		"addr": ":5004",
 		"password": "dankogai"
+		"root": "/mobirc/",
+		"backlog": "./backlog.json",
+		"keywords": ["dan", "kogai"]
 	}
 }
