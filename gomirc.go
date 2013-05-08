@@ -297,7 +297,7 @@ func main() {
 				if u, err := url.Parse(ss); err == nil {
 					ext := strings.ToLower(path.Ext(u.Path))
 					if ext == ".jpg" || ext == ".gif" || ext == ".png" {
-						return fmt.Sprintf(`<img src="http://mgw.hatena.ne.jp/?url=%s&amp;size=140x140" rel="nofollow" alt="%s"/>`, url.QueryEscape(ss), url.QueryEscape(ss))
+						return fmt.Sprintf(`<a href="http://mgw.hatena.ne.jp/?url=%s&"><img src="http://mgw.hatena.ne.jp/?url=%s&amp;size=140x140" rel="nofollow" alt="%s"/></a>`, url.QueryEscape(ss), url.QueryEscape(ss), url.QueryEscape(ss))
 					} else {
 						return fmt.Sprintf(`<a href="http://mgw.hatena.ne.jp/?url=%s&amp;noimage=0;split=1" rel="nofollow">%s</a>`, url.QueryEscape(ss), ss)
 					}
