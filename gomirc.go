@@ -98,6 +98,13 @@ func newCount(t *Channel) int {
 
 var configFile = flag.String("c", "config.json", "config file")
 
+func getChannelName(name string) string {
+	if name != "" && name[0] == '#' {
+		return name[1:]
+	}
+	return name
+}
+
 func getChannel(network *Network, channel string) *Channel {
 	if _, ok := network.Channels[channel]; !ok {
 		network.Channels[channel] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
@@ -202,14 +209,14 @@ func main() {
 				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
 				false,
 			}
-			ch := getChannel(networks[conn.Network], line.Args[0][1:])
+			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, line.Args[0][1:], message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
 				}
 			}
 		})
@@ -228,14 +235,14 @@ func main() {
 				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
 				true,
 			}
-			ch := getChannel(networks[conn.Network], line.Args[0][1:])
+			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, line.Args[0][1:], message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
 				}
 			}
 		})
@@ -247,13 +254,13 @@ func main() {
 			if _, ok := networks[conn.Network]; !ok {
 				return
 			}
-			members := getChannel(networks[conn.Network], line.Args[0][1:]).Members
+			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
 			members[line.Src] = &Member{}
 		})
 
 		c.AddHandler("part", func(conn *client.Conn, line *client.Line) {
 			println("part", line.Src, line.Args[0])
-			members := getChannel(networks[conn.Network], line.Args[0][1:]).Members
+			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
 			delete(members, line.Src)
 		})
 
