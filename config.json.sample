@@ -2,21 +2,15 @@
 	"irc": [
 		{
 			"name": "freende",
-			"host": "irc.freenode.net:6668",
-			"user": "my-username",
-			"password": "my-password",
-			"channels": ["golang-nuts"]
-		},
-		{
-			"name": "perl",
-			"host": "irc.perl.org:6668",
-			"user": "my-username",
-			"password": "my-password"
+			"host": "localhost:6668",
+			"user": "hello",
+			"password": "world",
+			"channels": ["go-nuts"]
 		}
 	],
 	"web": {
-		"addr": ":5004",
-		"password": "dankogai"
+		"addr": ":5005",
+		"password": "dankogai",
 		"root": "/mobirc/",
 		"backlog": "./backlog.json",
 		"keywords": ["dan", "kogai"]
