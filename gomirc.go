@@ -419,20 +419,24 @@ func main() {
 		case "POST":
 			p := r.FormValue("post")
 			if p != "" {
-				networks[network].conn.Privmsg("#"+channel, p)
-				ch := getChannel(networks[network], channel)
-				ch.Seen = time.Now()
-				ch.Messages = append(
-					ch.Messages,
-					&Message{
-						networks[network].conn.Me.Nick,
-						r.FormValue("post"),
-						time.Now(),
-						true,
-						false,
-					})
-				if len(ch.Messages) > 100 {
-					ch.Messages = ch.Messages[1:]
+				if p[0] == '/' {
+					networks[network].conn.Raw(p)
+				} else {
+					networks[network].conn.Privmsg("#"+channel, p)
+					ch := getChannel(networks[network], channel)
+					ch.Seen = time.Now()
+					ch.Messages = append(
+						ch.Messages,
+						&Message{
+							networks[network].conn.Me.Nick,
+							r.FormValue("post"),
+							time.Now(),
+							true,
+							false,
+						})
+					if len(ch.Messages) > 100 {
+						ch.Messages = ch.Messages[1:]
+					}
 				}
 			}
 			http.Redirect(w, r, r.URL.Path, http.StatusFound)
