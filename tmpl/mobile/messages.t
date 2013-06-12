@@ -26,7 +26,7 @@
 <input type="text" name="post"/>
 <input type="submit" value="say"/>
 </form>
-{{range reverse $value.Channel.Messages}}{{with $message := .}}<span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable}}</span><br />{{end}}
+{{range reverse $value.Channel.Messages}}{{with $message := .}}<span class="time">{{time $message.Time}}</span>(<span class="{{if $message.IsSelf}}self{{else}}nick{{end}}">{{nick $message.Nickname | html}}</span>)<span class="public">{{html $message.Text | clickable_mobile}}</span><br />{{end}}
 {{end}}
 <hr />
 <a accesskey="0" href=".">refresh</a>

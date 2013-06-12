@@ -304,6 +304,19 @@ func main() {
 				if u, err := url.Parse(ss); err == nil {
 					ext := strings.ToLower(path.Ext(u.Path))
 					if ext == ".jpg" || ext == ".gif" || ext == ".png" {
+						return fmt.Sprintf(`<a href="%s"><img src="%s" rel="nofollow" alt="%s"/></a>`, ss, ss, url.QueryEscape(ss))
+					} else {
+						return fmt.Sprintf(`<a href="%s" rel="nofollow">%s</a>`, ss, ss)
+					}
+				}
+				return s
+			})
+		},
+		"clickable_mobile": func(s string) string {
+			return reLink.ReplaceAllStringFunc(s, func(ss string) string {
+				if u, err := url.Parse(ss); err == nil {
+					ext := strings.ToLower(path.Ext(u.Path))
+					if ext == ".jpg" || ext == ".gif" || ext == ".png" {
 						return fmt.Sprintf(`<a href="http://mgw.hatena.ne.jp/?url=%s&"><img src="http://mgw.hatena.ne.jp/?url=%s&amp;size=140x140" rel="nofollow" alt="%s"/></a>`, url.QueryEscape(ss), url.QueryEscape(ss), url.QueryEscape(ss))
 					} else {
 						return fmt.Sprintf(`<a href="http://mgw.hatena.ne.jp/?url=%s&amp;noimage=0;split=1" rel="nofollow">%s</a>`, url.QueryEscape(ss), ss)
