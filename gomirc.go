@@ -420,7 +420,7 @@ func main() {
 			p := r.FormValue("post")
 			if p != "" {
 				if p[0] == '/' {
-					networks[network].conn.Raw(p)
+					networks[network].conn.Raw(p[1:])
 				} else {
 					networks[network].conn.Privmsg("#"+channel, p)
 					ch := getChannel(networks[network], channel)
