@@ -40,7 +40,7 @@
 </ul>
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
-<a accesskey="0" href=".">refresh</a>
+<a accesskey="0" href="{{$root}}">refresh</a>
 </div>
 </div>
 </body>
