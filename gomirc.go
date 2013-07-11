@@ -146,6 +146,7 @@ func main() {
 			f.Close()
 		}
 		sc := make(chan os.Signal)
+		signal.Notify(sc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 		go func() {
 			<-sc
 			if f, err = os.Create(backlog); err == nil {
@@ -154,7 +155,6 @@ func main() {
 			}
 			os.Exit(0)
 		}()
-		signal.Notify(sc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	}
 
 	keywords := []string{}
@@ -331,11 +331,15 @@ func main() {
 	}
 
 	tmpls := map[string]*template.Template{}
-	tmpls["mobile"], err = template.New("mobile").Funcs(fmap).ParseGlob(filepath.Join(filepath.Dir(os.Args[0]), "tmpl/mobile", "*.t"))
+	rootdir := filepath.Dir(os.Args[0])
+	if tmpldir, ok := config["web"].(map[string]interface{})["rootdir"].(string); ok {
+		rootdir = tmpldir
+	}
+	tmpls["mobile"], err = template.New("mobile").Funcs(fmap).ParseGlob(filepath.Join(rootdir, "tmpl/mobile", "*.t"))
 	if err != nil {
 		log.Fatal("mobile ", err.Error())
 	}
-	tmpls["iphone"], err = template.New("iphone").Funcs(fmap).ParseGlob(filepath.Join(filepath.Dir(os.Args[0]), "tmpl/iphone", "*.t"))
+	tmpls["iphone"], err = template.New("iphone").Funcs(fmap).ParseGlob(filepath.Join(rootdir, "tmpl/iphone", "*.t"))
 	if err != nil {
 		log.Fatal("iphone ", err.Error())
 	}
