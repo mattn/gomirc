@@ -173,6 +173,17 @@ func main() {
 		}()
 	}
 
+	for _, nw := range networks {
+		for cn, cc := range nw.Channels {
+			if len(cc.Name) == 0 {
+				cc.Name = cn
+				ircChannelName := strings.Map(ircLowerCaseMap, cn)
+				nw.Channels[ircChannelName] = cc
+				delete(nw.Channels, cn)
+			}
+		}
+	}
+
 	keywords := []string{}
 	if kwi, ok := config["web"].(map[string]interface{})["keywords"].([]interface{}); ok {
 		for _, kw := range kwi {
