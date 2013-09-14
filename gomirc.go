@@ -393,6 +393,7 @@ func main() {
 			}
 		}
 		sort.Sort(chs)
+		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "channels", tmplValue{
 			Root: root,
 			Value: &struct {
@@ -408,6 +409,7 @@ func main() {
 	http.HandleFunc(root+"login/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
+			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "login", tmplValue{
 				Root:  root,
 				Value: nil,
@@ -430,6 +432,7 @@ func main() {
 			return
 		}
 
+		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "keyword", tmplValue{
 			Root:  root,
 			Value: keywordMatches,
@@ -452,6 +455,7 @@ func main() {
 		case "GET":
 			ch := getChannel(networks[network], channel)
 			ch.Seen = time.Now()
+			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "messages", tmplValue{
 				Root:  root,
 				Value: &ChannelMap{
