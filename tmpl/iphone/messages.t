@@ -30,7 +30,7 @@
 <body>
 <div data-role="page" data-theme="b" data-fullscreen="true">
 <div data-role="header" data-theme="b">
-<h2>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h2>
+<h2>{{$value.Channel.Name | html}}@{{$value.NetworkName | html}}</h2>
 </div>
 <div data-role="content">
 <ul data-role="listview" data-ajax="false" data-inset="true" data-theme="d">

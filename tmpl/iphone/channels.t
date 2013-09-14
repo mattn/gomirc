@@ -35,7 +35,7 @@
 </div>
 <div data-role="content">
 <ul data-role="listview" data-ajax="false" data-inset="true" data-theme="d">
-{{range $channel := $value.Channels}}<li><a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}({{new $channel.Channel}})</a></li>
+{{range $channel := $value.Channels}}<li><a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.Channel.Name}}@{{$channel.NetworkName}}({{new $channel.Channel}})</a></li>
 {{end}}
 </ul>
 </div>

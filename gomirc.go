@@ -41,6 +41,7 @@ type Member struct {
 }
 
 type Channel struct {
+	Name     string             `json:"name"`
 	Members  map[string]*Member `json:"members"`
 	Messages []*Message         `json:"messages"`
 	Seen     time.Time          `json:"seen"`
@@ -105,11 +106,26 @@ func getChannelName(name string) string {
 	return name
 }
 
-func getChannel(network *Network, channel string) *Channel {
-	if _, ok := network.Channels[channel]; !ok {
-		network.Channels[channel] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
+func ircLowerCaseMap(r rune) rune {
+	switch {
+	case r >= 'A' && r <= 'Z':
+		return 'a' + (r-'A')
+	case r == '[':
+		return '{'
+	case r == ']':
+		return '}'
+	case r == '\\':
+		return '|'
 	}
-	return network.Channels[channel]
+	return r;
+}
+
+func getChannel(network *Network, channel string) *Channel {
+	ircChannelName := strings.Map(ircLowerCaseMap, channel)
+	if _, ok := network.Channels[ircChannelName]; !ok {
+		network.Channels[ircChannelName] = &Channel{channel, make(map[string]*Member), make([]*Message, 0), time.Now()}
+	}
+	return network.Channels[ircChannelName]
 }
 
 func getTmplName(req *http.Request) string {

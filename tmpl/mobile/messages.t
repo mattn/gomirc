@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<h4>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h4>
+<h4>{{$value.Channel.Name | html}}@{{$value.NetworkName | html}}</h4>
 <form method="post">
 <input type="text" name="post"/>
 <input type="submit" value="say"/>
