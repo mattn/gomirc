@@ -26,7 +26,7 @@
 {{range $channel := $value.Channels}}<a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
 {{end}}
 <hr />
-<a accesskey="0" href=".">refresh</a>
+<a accesskey="0" href="./">refresh</a>
 </body>
 </html>
 {{end}}
