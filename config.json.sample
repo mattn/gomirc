@@ -3,7 +3,9 @@
 		{
 			"name": "freende",
 			"host": "localhost:6668",
+			"nick": "hello",
 			"user": "hello",
+			"realname": "Powered by GoIRC",
 			"password": "world",
 			"channels": ["go-nuts"]
 		}
