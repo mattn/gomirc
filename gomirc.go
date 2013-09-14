@@ -168,7 +168,7 @@ func main() {
 
 	for _, elem := range config["irc"].([]interface{}) {
 		irc := elem.(map[string]interface{})
-		c := client.SimpleClient(irc["user"].(string), irc["user"].(string))
+		c := client.SimpleClient(irc["nick"].(string), irc["user"].(string), irc["realname"].(string))
 		c.Network = irc["name"].(string)
 		c.EnableStateTracking()
 
@@ -206,7 +206,7 @@ func main() {
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				nickFormat(line.Src) == networks[conn.Network].config["nick"].(string),
 				false,
 			}
 			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
@@ -232,7 +232,7 @@ func main() {
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				nickFormat(line.Src) == networks[conn.Network].config["nick"].(string),
 				true,
 			}
 			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
