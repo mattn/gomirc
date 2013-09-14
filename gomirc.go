@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/fluffle/goirc/client"
+	"github.com/ha1t/goirc/client"
 	"github.com/mattn/go-mobileagent"
 	"github.com/mattn/go-session-manager"
 	"html/template"
