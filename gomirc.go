@@ -276,7 +276,7 @@ func main() {
 	}
 
 	manager := session.NewSessionManager(nil)
-	manager.SetTimeout(10000)
+	manager.SetTimeout(60 * 60 * 24)
 	root := "/"
 	if root, _ = config["web"].(map[string]interface{})["root"].(string); root != "/" {
 		manager.SetPath(root)
@@ -345,7 +345,7 @@ func main() {
 	}
 
 	http.HandleFunc(root+"assets/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "static/"+r.URL.Path[len(root+"asserts"):])
+		http.ServeFile(w, r, filepath.Join(rootdir, "static/"+r.URL.Path[len(root+"asserts"):]))
 	})
 
 	http.HandleFunc(root, func(w http.ResponseWriter, r *http.Request) {
