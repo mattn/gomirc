@@ -33,7 +33,7 @@
 </div>
 <div data-role="content">
 <ul data-role="listview" data-ajax="false" data-inset="true" data-theme="d">
-{{range $match := $value}}<li><a href="{{$root}}irc/{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel"><span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> ({{$match.Channel.Name}}@{{$match.NetworkName}})</a></li>{{end}}
+{{range $match := $value}}<li><a href="{{$root}}irc/{{urlquery $match.NetworkName}}/{{urlquery $match.ChannelName}}/" class="channel"><span class="time">{{time $match.Message.Time}}</span>(<span class="{{if $match.Message.IsSelf}}self{{else}}nick{{end}}">{{nick $match.Message.Nickname | html}}</span>)<span class="public">{{html $match.Message.Text | clickable}}</span> ({{$match.ChannelName}}@{{$match.NetworkName}})</a></li>{{end}}
 </ul>
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
