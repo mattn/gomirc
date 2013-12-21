@@ -41,6 +41,7 @@
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
 <a accesskey="0" href="{{$root}}">refresh</a>
+{{if $value.HasLog}}<a accesskey="9" href="{{$root}}log/">log</a>{{end}}
 </div>
 </div>
 </body>

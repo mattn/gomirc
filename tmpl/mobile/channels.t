@@ -27,6 +27,7 @@
 {{end}}
 <hr />
 <a accesskey="0" href="./">refresh</a>
+{{if $value.HasLog}}<a accesskey="9" href="{{$root}}log/">log</a>{{end}}
 </body>
 </html>
 {{end}}

@@ -362,6 +362,8 @@ func main() {
 	if tmpldir, ok := config["web"].(map[string]interface{})["rootdir"].(string); ok {
 		rootdir = tmpldir
 	}
+	logdir, _ := config["web"].(map[string]interface{})["logdir"].(string)
+
 	tmpls["mobile"], err = template.New("mobile").Funcs(fmap).ParseGlob(filepath.Join(rootdir, "tmpl/mobile", "*.t"))
 	if err != nil {
 		log.Fatal("mobile ", err.Error())
@@ -374,6 +376,11 @@ func main() {
 	http.HandleFunc(root+"assets/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(rootdir, "static/"+r.URL.Path[len(root+"asserts"):]))
 	})
+
+
+	if len(logdir) > 0 {
+		http.Handle(root+"log/", http.StripPrefix(root+"log/", http.FileServer(http.Dir(logdir))))
+	}
 
 	http.HandleFunc(root, func(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
@@ -399,9 +406,11 @@ func main() {
 			Value: &struct {
 				Channels       Channels
 				KeywordMatches []*KeywordMatch
+				HasLog bool
 			}{
 				Channels:       chs,
 				KeywordMatches: keywordMatches,
+				HasLog: len(logdir) > 0,
 			},
 		})
 	})
