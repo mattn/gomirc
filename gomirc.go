@@ -9,6 +9,7 @@ import (
 	"github.com/mattn/go-session-manager"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -500,5 +501,16 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe(config["web"].(map[string]interface{})["addr"].(string), weblog(http.DefaultServeMux))
+	addr := config["web"].(map[string]interface{})["addr"].(string)
+	typ, _ := config["web"].(map[string]interface{})["type"]
+	typs, _ := typ.(string)
+	if typs != "" {
+		l, err := net.Listen(typs, addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		http.Serve(l, http.DefaultServeMux)
+	} else {
+		http.ListenAndServe(addr, weblog(http.DefaultServeMux))
+	}
 }
