@@ -195,23 +195,31 @@ func main() {
 
 	keywordMatches := []*KeywordMatch{}
 
+	nameOf := func(c *client.Conn) string{
+		for k, v := range networks {
+			if v.conn == c {
+				return k
+			}
+		}
+		panic("Shouldn't pass")
+	}
+
 	for _, elem := range config["irc"].([]interface{}) {
 		irc := elem.(map[string]interface{})
 		c := client.SimpleClient(irc["nick"].(string), irc["user"].(string), irc["realname"].(string))
 		c.EnableStateTracking()
 
-
-		if network, ok := networks[c.Config().Server]; ok {
+		if network, ok := networks[irc["name"].(string)]; ok {
 			network.conn = c
 			network.config = irc
 		} else {
-			networks[c.Config().Server] = &Network{make(map[string]*Channel), c, irc}
+			networks[irc["name"].(string)] = &Network{make(map[string]*Channel), c, irc}
 		}
 
 		c.HandleFunc("connected", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			joinlist := networks[conn.Config().Server].config["channels"]
+			joinlist := networks[nameOf(conn)].config["channels"]
 			if joinlist != nil {
 				for _, ch := range joinlist.([]interface{}) {
 					conn.Join(ch.(string))
@@ -228,24 +236,24 @@ func main() {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("privmsg", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Config().Server]; !ok {
+			if _, ok := networks[nameOf(conn)]; !ok {
 				return
 			}
 			message := &Message{
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Config().Server].config["nick"].(string),
+				nickFormat(line.Src) == networks[nameOf(conn)].config["nick"].(string),
 				false,
 			}
-			ch := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0]))
+			ch := getChannel(networks[nameOf(conn)], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Config().Server, getChannelName(line.Args[0]), message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{nameOf(conn), getChannelName(line.Args[0]), message})
 				}
 			}
 		})
@@ -254,24 +262,24 @@ func main() {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("notice", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Config().Server]; !ok {
+			if _, ok := networks[nameOf(conn)]; !ok {
 				return
 			}
 			message := &Message{
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Config().Server].config["nick"].(string),
+				nickFormat(line.Src) == networks[nameOf(conn)].config["nick"].(string),
 				true,
 			}
-			ch := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0]))
+			ch := getChannel(networks[nameOf(conn)], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Config().Server, getChannelName(line.Args[0]), message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{nameOf(conn), getChannelName(line.Args[0]), message})
 				}
 			}
 		})
@@ -280,16 +288,16 @@ func main() {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("join", line.Src, line.Args[0])
-			if _, ok := networks[conn.Config().Server]; !ok {
+			if _, ok := networks[nameOf(conn)]; !ok {
 				return
 			}
-			members := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0])).Members
+			members := getChannel(networks[nameOf(conn)], getChannelName(line.Args[0])).Members
 			members[line.Src] = &Member{}
 		})
 
 		c.HandleFunc("part", func(conn *client.Conn, line *client.Line) {
 			println("part", line.Src, line.Args[0])
-			members := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0])).Members
+			members := getChannel(networks[nameOf(conn)], getChannelName(line.Args[0])).Members
 			delete(members, line.Src)
 		})
 
