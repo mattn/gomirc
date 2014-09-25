@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/ha1t/goirc/client"
+	"github.com/fluffle/goirc/client"
 	"github.com/mattn/go-mobileagent"
 	"github.com/mattn/go-session-manager"
 	"html/template"
@@ -143,6 +143,7 @@ func weblog(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r)
 	})
 }
+
 func main() {
 	flag.Parse()
 	f, err := os.Open(*configFile)
@@ -197,20 +198,20 @@ func main() {
 	for _, elem := range config["irc"].([]interface{}) {
 		irc := elem.(map[string]interface{})
 		c := client.SimpleClient(irc["nick"].(string), irc["user"].(string), irc["realname"].(string))
-		c.Network = irc["name"].(string)
 		c.EnableStateTracking()
 
-		if network, ok := networks[c.Network]; ok {
+
+		if network, ok := networks[c.Config().Server]; ok {
 			network.conn = c
 			network.config = irc
 		} else {
-			networks[c.Network] = &Network{make(map[string]*Channel), c, irc}
+			networks[c.Config().Server] = &Network{make(map[string]*Channel), c, irc}
 		}
 
-		c.AddHandler("connected", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("connected", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			joinlist := networks[conn.Network].config["channels"]
+			joinlist := networks[conn.Config().Server].config["channels"]
 			if joinlist != nil {
 				for _, ch := range joinlist.([]interface{}) {
 					conn.Join(ch.(string))
@@ -219,82 +220,82 @@ func main() {
 		})
 
 		quit := make(chan bool)
-		c.AddHandler("disconnected", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("disconnected", func(conn *client.Conn, line *client.Line) {
 			quit <- true
 		})
 
-		c.AddHandler("privmsg", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("privmsg", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("privmsg", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Network]; !ok {
+			if _, ok := networks[conn.Config().Server]; !ok {
 				return
 			}
 			message := &Message{
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["nick"].(string),
+				nickFormat(line.Src) == networks[conn.Config().Server].config["nick"].(string),
 				false,
 			}
-			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
+			ch := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Config().Server, getChannelName(line.Args[0]), message})
 				}
 			}
 		})
 
-		c.AddHandler("notice", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("notice", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("notice", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Network]; !ok {
+			if _, ok := networks[conn.Config().Server]; !ok {
 				return
 			}
 			message := &Message{
 				line.Src,
 				line.Args[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["nick"].(string),
+				nickFormat(line.Src) == networks[conn.Config().Server].config["nick"].(string),
 				true,
 			}
-			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
+			ch := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
 				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
+					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Config().Server, getChannelName(line.Args[0]), message})
 				}
 			}
 		})
 
-		c.AddHandler("join", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("join", func(conn *client.Conn, line *client.Line) {
 			mutex.Lock()
 			defer mutex.Unlock()
 			println("join", line.Src, line.Args[0])
-			if _, ok := networks[conn.Network]; !ok {
+			if _, ok := networks[conn.Config().Server]; !ok {
 				return
 			}
-			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
+			members := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0])).Members
 			members[line.Src] = &Member{}
 		})
 
-		c.AddHandler("part", func(conn *client.Conn, line *client.Line) {
+		c.HandleFunc("part", func(conn *client.Conn, line *client.Line) {
 			println("part", line.Src, line.Args[0])
-			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
+			members := getChannel(networks[conn.Config().Server], getChannelName(line.Args[0])).Members
 			delete(members, line.Src)
 		})
 
 		go func(irc map[string]interface{}, c *client.Conn) {
 			for {
-				if err := c.Connect(irc["host"].(string), irc["password"].(string)); err != nil {
+				if err := c.ConnectTo(irc["host"].(string), irc["password"].(string)); err != nil {
 					fmt.Printf("Connection error: %s\n", err)
 					return
 				}
@@ -486,7 +487,7 @@ func main() {
 					ch.Messages = append(
 						ch.Messages,
 						&Message{
-							networks[network].conn.Me.Nick,
+							networks[network].conn.Me().Nick,
 							r.FormValue("post"),
 							time.Now(),
 							true,
