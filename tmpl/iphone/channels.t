@@ -1,5 +1,5 @@
 {{define "channels"}}
-{{$root := .Root}}{{$value := .Value}}
+{{$root := .Root}}{{$value := .Value}}{{$path := .Path}}
 <!DOCTYPE html>
 <html>
 <head>
@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b" data-fullscreen="true" data-url="{{$root}}">
+<div data-role="page" data-theme="b" data-fullscreen="true" data-url="{{$path}}">
 <div data-role="header" data-theme="b">
 <h2>GoMIRC</h2>
 {{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
@@ -40,7 +40,7 @@
 </ul>
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
-<a accesskey="0" href="{{$root}}">refresh</a>
+<a accesskey="0" href="?action=refresh">refresh</a>
 {{if $value.HasLog}}<a accesskey="9" href="{{$root}}log/">log</a>{{end}}
 </div>
 </div>

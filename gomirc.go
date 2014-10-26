@@ -74,6 +74,7 @@ type Network struct {
 
 type tmplValue struct {
 	Root  interface{}
+	Path  interface{}
 	Value interface{}
 }
 
@@ -110,7 +111,7 @@ func getChannelName(name string) string {
 func ircLowerCaseMap(r rune) rune {
 	switch {
 	case r >= 'A' && r <= 'Z':
-		return 'a' + (r-'A')
+		return 'a' + (r - 'A')
 	case r == '[':
 		return '{'
 	case r == ']':
@@ -118,7 +119,7 @@ func ircLowerCaseMap(r rune) rune {
 	case r == '\\':
 		return '|'
 	}
-	return r;
+	return r
 }
 
 func getChannel(network *Network, channel string) *Channel {
@@ -195,7 +196,7 @@ func main() {
 
 	keywordMatches := []*KeywordMatch{}
 
-	nameOf := func(c *client.Conn) string{
+	nameOf := func(c *client.Conn) string {
 		for k, v := range networks {
 			if v.conn == c {
 				return k
@@ -387,7 +388,6 @@ func main() {
 		http.ServeFile(w, r, filepath.Join(rootdir, "static/"+r.URL.Path[len(root+"asserts"):]))
 	})
 
-
 	if len(logdir) > 0 {
 		http.Handle(root+"log/", http.StripPrefix(root+"log/", http.FileServer(http.Dir(logdir))))
 	}
@@ -413,14 +413,15 @@ func main() {
 		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "channels", tmplValue{
 			Root: root,
+			Path: r.URL.Path,
 			Value: &struct {
 				Channels       Channels
 				KeywordMatches []*KeywordMatch
-				HasLog bool
+				HasLog         bool
 			}{
 				Channels:       chs,
 				KeywordMatches: keywordMatches,
-				HasLog: len(logdir) > 0,
+				HasLog:         len(logdir) > 0,
 			},
 		})
 	})
@@ -431,6 +432,7 @@ func main() {
 			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "login", tmplValue{
 				Root:  root,
+				Path:  r.URL.Path,
 				Value: nil,
 			})
 		case "POST":
@@ -454,6 +456,7 @@ func main() {
 		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "keyword", tmplValue{
 			Root:  root,
+			Path:  r.URL.Path,
 			Value: keywordMatches,
 		})
 		keywordMatches = []*KeywordMatch{}
@@ -476,7 +479,8 @@ func main() {
 			ch.Seen = time.Now()
 			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "messages", tmplValue{
-				Root:  root,
+				Root: root,
+				Path: r.URL.Path,
 				Value: &ChannelMap{
 					NetworkName: network,
 					ChannelName: channel,
