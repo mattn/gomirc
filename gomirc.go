@@ -522,8 +522,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		http.Serve(l, http.DefaultServeMux)
+		log.Fatal(http.Serve(l, http.DefaultServeMux))
 	} else {
-		http.ListenAndServe(addr, weblog(http.DefaultServeMux))
+		log.Fatal(http.ListenAndServe(addr, weblog(http.DefaultServeMux)))
 	}
 }
