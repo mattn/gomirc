@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/fluffle/goirc/client"
 	"github.com/mattn/go-mobileagent"
 	"github.com/mattn/go-session-manager"
+	"github.com/thoj/go-ircevent"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -41,6 +42,7 @@ type Member struct {
 }
 
 type Channel struct {
+	Name     string             `json:"name"`
 	Members  map[string]*Member `json:"members"`
 	Messages []*Message         `json:"messages"`
 	Seen     time.Time          `json:"seen"`
@@ -66,12 +68,13 @@ type KeywordMatch struct {
 
 type Network struct {
 	Channels map[string]*Channel `json:"channels"`
-	conn     *client.Conn
+	conn     *irc.Connection
 	config   map[string]interface{}
 }
 
 type tmplValue struct {
 	Root  interface{}
+	Path  interface{}
 	Value interface{}
 }
 
@@ -105,11 +108,26 @@ func getChannelName(name string) string {
 	return name
 }
 
-func getChannel(network *Network, channel string) *Channel {
-	if _, ok := network.Channels[channel]; !ok {
-		network.Channels[channel] = &Channel{make(map[string]*Member), make([]*Message, 0), time.Now()}
+func ircLowerCaseMap(r rune) rune {
+	switch {
+	case r >= 'A' && r <= 'Z':
+		return 'a' + (r - 'A')
+	case r == '[':
+		return '{'
+	case r == ']':
+		return '}'
+	case r == '\\':
+		return '|'
 	}
-	return network.Channels[channel]
+	return r
+}
+
+func getChannel(network *Network, channel string) *Channel {
+	ircChannelName := strings.Map(ircLowerCaseMap, channel)
+	if _, ok := network.Channels[ircChannelName]; !ok {
+		network.Channels[ircChannelName] = &Channel{channel, make(map[string]*Member), make([]*Message, 0), time.Now()}
+	}
+	return network.Channels[ircChannelName]
 }
 
 func getTmplName(req *http.Request) string {
@@ -126,6 +144,7 @@ func weblog(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r)
 	})
 }
+
 func main() {
 	flag.Parse()
 	f, err := os.Open(*configFile)
@@ -157,6 +176,17 @@ func main() {
 		}()
 	}
 
+	for _, nw := range networks {
+		for cn, cc := range nw.Channels {
+			if len(cc.Name) == 0 {
+				cc.Name = cn
+				ircChannelName := strings.Map(ircLowerCaseMap, cn)
+				nw.Channels[ircChannelName] = cc
+				delete(nw.Channels, cn)
+			}
+		}
+	}
+
 	keywords := []string{}
 	if kwi, ok := config["web"].(map[string]interface{})["keywords"].([]interface{}); ok {
 		for _, kw := range kwi {
@@ -166,117 +196,124 @@ func main() {
 
 	keywordMatches := []*KeywordMatch{}
 
-	for _, elem := range config["irc"].([]interface{}) {
-		irc := elem.(map[string]interface{})
-		c := client.SimpleClient(irc["user"].(string), irc["user"].(string))
-		c.Network = irc["name"].(string)
-		c.EnableStateTracking()
+	nameOf := func(c *irc.Connection) string {
+		for k, v := range networks {
+			if v.conn == c {
+				return k
+			}
+		}
+		panic("Shouldn't pass")
+	}
 
-		if network, ok := networks[c.Network]; ok {
+	for _, elem := range config["irc"].([]interface{}) {
+		cfg := elem.(map[string]interface{})
+		c := irc.IRC(cfg["nick"].(string), cfg["user"].(string))
+		if network, ok := networks[cfg["name"].(string)]; ok {
 			network.conn = c
-			network.config = irc
+			network.config = cfg
 		} else {
-			networks[c.Network] = &Network{make(map[string]*Channel), c, irc}
+			networks[cfg["name"].(string)] = &Network{make(map[string]*Channel), c, cfg}
 		}
 
-		c.AddHandler("connected", func(conn *client.Conn, line *client.Line) {
+		c.AddCallback("CONNECTED", func(e *irc.Event) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			joinlist := networks[conn.Network].config["channels"]
+			joinlist := networks[nameOf(e.Connection)].config["channels"]
 			if joinlist != nil {
 				for _, ch := range joinlist.([]interface{}) {
-					conn.Join(ch.(string))
+					e.Connection.Join(ch.(string))
 				}
 			}
 		})
 
 		quit := make(chan bool)
-		c.AddHandler("disconnected", func(conn *client.Conn, line *client.Line) {
+		c.AddCallback("DISCONNECTED", func(e *irc.Event) {
 			quit <- true
 		})
 
-		c.AddHandler("privmsg", func(conn *client.Conn, line *client.Line) {
+		c.AddCallback("PRIVMSG", func(e *irc.Event) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			println("privmsg", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Network]; !ok {
+			println("PRIVMSG", e.Source, e.Arguments[0], e.Arguments[1])
+			if _, ok := networks[nameOf(e.Connection)]; !ok {
 				return
 			}
 			message := &Message{
-				line.Src,
-				line.Args[1],
+				e.Source,
+				e.Arguments[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				nickFormat(e.Source) == networks[nameOf(e.Connection)].config["nick"].(string),
 				false,
 			}
-			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
+			ch := getChannel(networks[nameOf(e.Connection)], getChannelName(e.Arguments[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
-				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
+				if strings.Contains(e.Arguments[1], keyword) {
+					keywordMatches = append(keywordMatches, &KeywordMatch{nameOf(e.Connection), getChannelName(e.Arguments[0]), message})
 				}
 			}
 		})
 
-		c.AddHandler("notice", func(conn *client.Conn, line *client.Line) {
+		c.AddCallback("notice", func(e *irc.Event) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			println("notice", line.Src, line.Args[0], line.Args[1])
-			if _, ok := networks[conn.Network]; !ok {
+			println("NOTICE", e.Source, e.Arguments[0], e.Arguments[1])
+			if _, ok := networks[nameOf(e.Connection)]; !ok {
 				return
 			}
 			message := &Message{
-				line.Src,
-				line.Args[1],
+				e.Source,
+				e.Arguments[1],
 				time.Now(),
-				nickFormat(line.Src) == networks[conn.Network].config["user"].(string),
+				nickFormat(e.Source) == networks[nameOf(e.Connection)].config["nick"].(string),
 				true,
 			}
-			ch := getChannel(networks[conn.Network], getChannelName(line.Args[0]))
+			ch := getChannel(networks[nameOf(e.Connection)], getChannelName(e.Arguments[0]))
 			ch.Messages = append(ch.Messages, message)
 			if len(ch.Messages) > 100 {
 				ch.Messages = ch.Messages[1:]
 			}
 			for _, keyword := range keywords {
-				if strings.Contains(line.Args[1], keyword) {
-					keywordMatches = append(keywordMatches, &KeywordMatch{conn.Network, getChannelName(line.Args[0]), message})
+				if strings.Contains(e.Arguments[1], keyword) {
+					keywordMatches = append(keywordMatches, &KeywordMatch{nameOf(e.Connection), getChannelName(e.Arguments[0]), message})
 				}
 			}
 		})
 
-		c.AddHandler("join", func(conn *client.Conn, line *client.Line) {
+		c.AddCallback("JOIN", func(e *irc.Event) {
 			mutex.Lock()
 			defer mutex.Unlock()
-			println("join", line.Src, line.Args[0])
-			if _, ok := networks[conn.Network]; !ok {
+			println("JOIN", e.Source, e.Arguments[0])
+			if _, ok := networks[nameOf(e.Connection)]; !ok {
 				return
 			}
-			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
-			members[line.Src] = &Member{}
+			members := getChannel(networks[nameOf(e.Connection)], getChannelName(e.Arguments[0])).Members
+			members[e.Source] = &Member{}
 		})
 
-		c.AddHandler("part", func(conn *client.Conn, line *client.Line) {
-			println("part", line.Src, line.Args[0])
-			members := getChannel(networks[conn.Network], getChannelName(line.Args[0])).Members
-			delete(members, line.Src)
+		c.AddCallback("PART", func(e *irc.Event) {
+			println("PART", e.Source, e.Arguments[0])
+			members := getChannel(networks[nameOf(e.Connection)], getChannelName(e.Arguments[0])).Members
+			delete(members, e.Source)
 		})
 
-		go func(irc map[string]interface{}, c *client.Conn) {
+		c.Password = cfg["password"].(string)
+		go func(cfg map[string]interface{}, c *irc.Connection) {
 			for {
-				if err := c.Connect(irc["host"].(string), irc["password"].(string)); err != nil {
+				if err := c.Connect(cfg["host"].(string)); err != nil {
 					fmt.Printf("Connection error: %s\n", err)
 					return
 				}
 				<-quit
 			}
-		}(irc, c)
+		}(cfg, c)
 	}
 
 	manager := session.NewSessionManager(log.New(os.Stdout, "", log.LstdFlags))
-	manager.SetTimeout(10000)
+	manager.SetTimeout(60 * 60 * 24)
 	root := "/"
 	if root, _ = config["web"].(map[string]interface{})["root"].(string); root != "/" {
 		manager.SetPath(root)
@@ -335,6 +372,8 @@ func main() {
 	if tmpldir, ok := config["web"].(map[string]interface{})["rootdir"].(string); ok {
 		rootdir = tmpldir
 	}
+	logdir, _ := config["web"].(map[string]interface{})["logdir"].(string)
+
 	tmpls["mobile"], err = template.New("mobile").Funcs(fmap).ParseGlob(filepath.Join(rootdir, "tmpl/mobile", "*.t"))
 	if err != nil {
 		log.Fatal("mobile ", err.Error())
@@ -345,8 +384,12 @@ func main() {
 	}
 
 	http.HandleFunc(root+"assets/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "static/"+r.URL.Path[len(root+"asserts"):])
+		http.ServeFile(w, r, filepath.Join(rootdir, "static/"+r.URL.Path[len(root+"asserts"):]))
 	})
+
+	if len(logdir) > 0 {
+		http.Handle(root+"log/", http.StripPrefix(root+"log/", http.FileServer(http.Dir(logdir))))
+	}
 
 	http.HandleFunc(root, func(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
@@ -366,14 +409,18 @@ func main() {
 			}
 		}
 		sort.Sort(chs)
+		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "channels", tmplValue{
 			Root: root,
+			Path: r.URL.Path,
 			Value: &struct {
 				Channels       Channels
 				KeywordMatches []*KeywordMatch
+				HasLog         bool
 			}{
 				Channels:       chs,
 				KeywordMatches: keywordMatches,
+				HasLog:         len(logdir) > 0,
 			},
 		})
 	})
@@ -381,8 +428,10 @@ func main() {
 	http.HandleFunc(root+"login/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
+			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "login", tmplValue{
 				Root:  root,
+				Path:  r.URL.Path,
 				Value: nil,
 			})
 		case "POST":
@@ -403,8 +452,10 @@ func main() {
 			return
 		}
 
+		w.Header().Add("Cache-Control", "max-age=0")
 		tmpls[getTmplName(r)].ExecuteTemplate(w, "keyword", tmplValue{
 			Root:  root,
+			Path:  r.URL.Path,
 			Value: keywordMatches,
 		})
 		keywordMatches = []*KeywordMatch{}
@@ -425,6 +476,7 @@ func main() {
 		case "GET":
 			ch := getChannel(networks[network], channel)
 			ch.Seen = time.Now()
+			w.Header().Add("Cache-Control", "max-age=0")
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "messages", tmplValue{
 				Root: root,
 				Value: &ChannelMap{
@@ -437,15 +489,16 @@ func main() {
 			p := r.FormValue("post")
 			if p != "" {
 				if p[0] == '/' {
-					networks[network].conn.Raw(p[1:])
+					networks[network].conn.SendRaw(p[1:])
 				} else {
 					networks[network].conn.Privmsg("#"+channel, p)
 					ch := getChannel(networks[network], channel)
 					ch.Seen = time.Now()
+					nick := networks[network].config["nick"].(string)
 					ch.Messages = append(
 						ch.Messages,
 						&Message{
-							networks[network].conn.Me.Nick,
+							nick,
 							r.FormValue("post"),
 							time.Now(),
 							true,
@@ -460,5 +513,16 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe(config["web"].(map[string]interface{})["addr"].(string), weblog(http.DefaultServeMux))
+	addr := config["web"].(map[string]interface{})["addr"].(string)
+	typ, _ := config["web"].(map[string]interface{})["type"]
+	typs, _ := typ.(string)
+	if typs != "" {
+		l, err := net.Listen(typs, addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Fatal(http.Serve(l, http.DefaultServeMux))
+	} else {
+		log.Fatal(http.ListenAndServe(addr, weblog(http.DefaultServeMux)))
+	}
 }

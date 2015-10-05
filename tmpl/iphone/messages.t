@@ -1,5 +1,5 @@
 {{define "messages"}}
-{{$root := .Root}}{{$value := .Value}}
+{{$root := .Root}}{{$value := .Value}}{{$path := .Path}}
 <html>
 <head>
 <meta charset="UTF-8">
@@ -28,9 +28,9 @@
 </style>
 </head>
 <body>
-<div data-role="page" data-theme="b" data-fullscreen="true">
+<div data-role="page" data-theme="b" data-fullscreen="true" data-url="{{$path}}">
 <div data-role="header" data-theme="b">
-<h2>{{$value.ChannelName | html}}@{{$value.NetworkName | html}}</h2>
+<h2>{{$value.Channel.Name | html}}@{{$value.NetworkName | html}}</h2>
 </div>
 <div data-role="content">
 <ul data-role="listview" data-ajax="false" data-inset="true" data-theme="d">
@@ -44,7 +44,7 @@
 <input type="submit" value="say"/>
 </form>
 <br />
-<a accesskey="0" href=".">refresh</a>
+<a accesskey="0" href="?action=refresh">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>
 </div>
 </body>

@@ -23,10 +23,11 @@
 <body>
 <h4>GoMIRC</h4>
 {{if $value.KeywordMatches}}<a href="{{$root}}keyword/" class="keyword">Keyword Matches!</a><br />{{end}}
-{{range $channel := $value.Channels}}<a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.ChannelName}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
+{{range $channel := $value.Channels}}<a href="{{$root}}irc/{{urlquery $channel.NetworkName}}/{{urlquery $channel.ChannelName}}/" class="channel">{{$channel.Channel.Name}}@{{$channel.NetworkName}}</a>({{new $channel.Channel}})<br />
 {{end}}
 <hr />
-<a accesskey="0" href=".">refresh</a>
+<a accesskey="0" href="./">refresh</a>
+{{if $value.HasLog}}<a accesskey="9" href="{{$root}}log/">log</a>{{end}}
 </body>
 </html>
 {{end}}

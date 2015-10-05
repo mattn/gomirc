@@ -37,7 +37,7 @@
 </ul>
 </div>
 <div data-role="footer" data-theme="b" data-position="fixed">
-<a accesskey="0" href=".">refresh</a>
+<a accesskey="0" href="./">refresh</a>
 <a accesskey="8" href="{{$root}}">ch list</a>
 </div>
 </body>
