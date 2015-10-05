@@ -275,7 +275,7 @@ func main() {
 		}(irc, c)
 	}
 
-	manager := session.NewSessionManager(nil)
+	manager := session.NewSessionManager(log.New(os.Stdout, "", log.LstdFlags))
 	manager.SetTimeout(10000)
 	root := "/"
 	if root, _ = config["web"].(map[string]interface{})["root"].(string); root != "/" {
@@ -426,7 +426,7 @@ func main() {
 			ch := getChannel(networks[network], channel)
 			ch.Seen = time.Now()
 			tmpls[getTmplName(r)].ExecuteTemplate(w, "messages", tmplValue{
-				Root:  root,
+				Root: root,
 				Value: &ChannelMap{
 					NetworkName: network,
 					ChannelName: channel,
