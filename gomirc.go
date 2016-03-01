@@ -169,6 +169,15 @@ func main() {
 		go func() {
 			<-sc
 			if f, err = os.Create(backlog); err == nil {
+				for _, network := range networks {
+					tmp := map[string]*Channel{}
+					for k, v := range network.Channels {
+						if len(v.Messages) != 0 {
+							tmp[k] = v
+						}
+					}
+					network.Channels = tmp
+				}
 				json.NewEncoder(f).Encode(&networks)
 				f.Close()
 			}
