@@ -478,8 +478,15 @@ func main() {
 			return
 		}
 
-		paths := strings.Split(r.URL.Path[len(root+"irc/"):], "/")
+		paths := strings.SplitN(r.URL.Path[len(root+"irc/"):], "/", 2)
 		network, channel := paths[0], paths[1]
+		if s, err := url.QueryUnescape(network); err == nil {
+			network = s
+		}
+		if s, err := url.QueryUnescape(channel); err == nil {
+			channel = s
+		}
+		channel = strings.Trim(channel, "/")
 
 		switch r.Method {
 		case "GET":
